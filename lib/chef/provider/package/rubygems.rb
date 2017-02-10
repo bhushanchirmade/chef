@@ -1,7 +1,7 @@
 #
 # Author:: Adam Jacob (<adam@chef.io>)
 # Author:: Daniel DeLeo (<dan@chef.io>)
-# Copyright:: Copyright 2008-2016, 2010-2016 Chef Software, Inc.
+# Copyright:: Copyright 2008-2016, 2010-2017, Chef Software Inc.
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -283,7 +283,7 @@ class Chef
               self.class.gempath_cache[@gem_binary_location]
             else
               # shellout! is a fork/exec which won't work on windows
-              shell_style_paths = shell_out_compact!(@gem_binary_location, "env", "gempath").stdout
+              shell_style_paths = shell_out!("#{@gem_binary_location} env gempath").stdout
               # on windows, the path separator is (usually? always?) semicolon
               paths = shell_style_paths.split(::File::PATH_SEPARATOR).map(&:strip)
               self.class.gempath_cache[@gem_binary_location] = paths
@@ -321,7 +321,7 @@ class Chef
             if self.class.platform_cache.key?(@gem_binary_location)
               self.class.platform_cache[@gem_binary_location]
             else
-              gem_environment = shell_out!(@gem_binary_location, "env").stdout
+              gem_environment = shell_out!("#{@gem_binary_location} env").stdout
               self.class.platform_cache[@gem_binary_location] = if jruby = gem_environment[JRUBY_PLATFORM]
                                                                   ["ruby", Gem::Platform.new(jruby)]
                                                                 else
@@ -365,7 +365,7 @@ class Chef
           super
           @cleanup_gem_env = true
           if new_resource.gem_binary
-            if options && options.is_a?(Hash)
+            if new_resource.options && new_resource.options.is_a?(Hash)
               msg =  "options cannot be given as a hash when using an explicit gem_binary\n"
               msg << "in #{new_resource} from #{new_resource.source_line}"
               raise ArgumentError, msg
@@ -375,7 +375,7 @@ class Chef
           elsif is_omnibus? && (!new_resource.instance_of? Chef::Resource::ChefGem)
             # Opscode Omnibus - The ruby that ships inside omnibus is only used for Chef
             # Default to installing somewhere more functional
-            if options && options.is_a?(Hash)
+            if new_resource.options && new_resource.options.is_a?(Hash)
               msg = [
                 "Gem options must be passed to gem_package as a string instead of a hash when",
                 "using this installation of Chef because it runs with its own packaged Ruby. A hash",
@@ -512,12 +512,12 @@ class Chef
         # 3. use gems API with options if a hash of options is given
         def install_package(name, version)
           if source_is_remote? && new_resource.gem_binary.nil?
-            if options.nil?
+            if new_resource.options.nil?
               @gem_env.install(gem_dependency, sources: gem_sources)
-            elsif options.is_a?(Hash)
-              dup_options = options.dup
-              dup_options[:sources] = gem_sources
-              @gem_env.install(gem_dependency, dup_options)
+            elsif new_resource.options.is_a?(Hash)
+              options = new_resource.options
+              options[:sources] = gem_sources
+              @gem_env.install(gem_dependency, options)
             else
               install_via_gem_command(name, version)
             end
@@ -534,19 +534,18 @@ class Chef
         end
 
         def install_via_gem_command(name, version)
-          src = nil
           if new_resource.source =~ /\.gem$/i
             name = new_resource.source
           elsif new_resource.clear_sources
-            src = [ "--clear-sources" ]
-            src << "--source=#{new_resource.source}" if new_resource.source
+            src = " --clear-sources"
+            src << (new_resource.source && " --source=#{new_resource.source}" || "")
           else
-            src = [ "--source=#{new_resource.source}", "--source=#{Chef::Config[:rubygems_url]}" ] if new_resource.source
+            src = new_resource.source && " --source=#{new_resource.source} --source=#{Chef::Config[:rubygems_url]}"
           end
           if !version.nil? && !version.empty?
-            shell_out_compact_timeout!(gem_binary_path, "install", name, "-q", "--no-rdoc", "--no-ri", "-v", version, src, options, env: nil)
+            shell_out_with_timeout!("#{gem_binary_path} install #{name} -q --no-rdoc --no-ri -v \"#{version}\"#{src}#{opts}", env: nil)
           else
-            shell_out_compact_timeout!(gem_binary_path, "install", name, "-q", "--no-rdoc", "--no-ri", src, options, env: nil)
+            shell_out_with_timeout!("#{gem_binary_path} install \"#{name}\" -q --no-rdoc --no-ri #{src}#{opts}", env: nil)
           end
         end
 
@@ -556,10 +555,10 @@ class Chef
 
         def remove_package(name, version)
           if new_resource.gem_binary.nil?
-            if options.nil?
+            if new_resource.options.nil?
               @gem_env.uninstall(name, version)
-            elsif options.is_a?(Hash)
-              @gem_env.uninstall(name, version, options)
+            elsif new_resource.options.is_a?(Hash)
+              @gem_env.uninstall(name, version, new_resource.options)
             else
               uninstall_via_gem_command(name, version)
             end
@@ -570,14 +569,20 @@ class Chef
 
         def uninstall_via_gem_command(name, version)
           if version
-            shell_out_compact_timeout!(gem_binary_path, "uninstall", name, "-q", "-x", "-I", "-v", version, options, env: nil)
+            shell_out_with_timeout!("#{gem_binary_path} uninstall #{name} -q -x -I -v \"#{version}\"#{opts}", env: nil)
           else
-            shell_out_compact_timeout!(gem_binary_path, "uninstall", name, "-q", "-x", "-I", "-a", options, env: nil)
+            shell_out_with_timeout!("#{gem_binary_path} uninstall #{name} -q -x -I -a#{opts}", env: nil)
           end
         end
 
         def purge_package(name, version)
           remove_package(name, version)
+        end
+
+        private
+
+        def opts
+          expand_options(new_resource.options)
         end
 
       end
