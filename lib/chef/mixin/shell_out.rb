@@ -1,6 +1,6 @@
 #--
 # Author:: Daniel DeLeo (<dan@chef.io>)
-# Copyright:: Copyright 2010-2016, Chef Software Inc.
+# Copyright:: Copyright 2010-2017, Chef Software Inc.
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -158,7 +158,8 @@ class Chef
       # @param args [String] variable number of string arguments
       # @return [String] nicely concatenated string or empty string
       def a_to_s(*args)
-        Chef.deprecated(:package_misc, "a_to_s is deprecated use shell_out_compact or shell_out_compact_timeout instead")
+        # can't quite deprecate this yet
+        #Chef.deprecated(:package_misc, "a_to_s is deprecated use shell_out_compact or shell_out_compact_timeout instead")
         args.flatten.reject { |i| i.nil? || i == "" }.map(&:to_s).join(" ")
       end
 
