@@ -133,7 +133,7 @@ INSTALLED
     end
 
     it "raises an error if package fails to install" do
-      expect(@provider).to receive(:shell_out!).with("pkg --no-refresh install -q crypto/gnupg@2.0.17", timeout: 900).and_raise(Mixlib::ShellOut::ShellCommandFailed)
+      expect(@provider).to receive(:shell_out!).with("pkg", "--no-refresh", "install", "-q", "crypto/gnupg@2.0.17", timeout: 900).and_raise(Mixlib::ShellOut::ShellCommandFailed)
       allow(@new_resource).to receive(:options).and_return("--no-refresh")
       expect { @provider.install_package("crypto/gnupg", "2.0.17") }.to raise_error(Mixlib::ShellOut::ShellCommandFailed)
     end
