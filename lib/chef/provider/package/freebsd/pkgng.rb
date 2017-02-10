@@ -37,7 +37,7 @@ class Chef
           end
 
           def remove_package(name, version)
-            options_dup = options && options.map { |str| str.sub(repo_regex, "") }.reject! { |str| str.empty? }
+            options_dup = options && options.map { |str| str.sub(repo_regex, "") }.reject!(&:empty?)
             shell_out_compact_timeout!("pkg", "delete", "-y", options_dup, "#{name}#{version ? '-' + version : ''}", env: nil).status
           end
 

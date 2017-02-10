@@ -159,7 +159,7 @@ class Chef
 
         def resolve_virtual_package_name(pkg)
           showpkg = run_noninteractive("apt-cache", "showpkg", pkg).stdout
-          partitions = showpkg.rpartition(/Reverse Provides: ?#{$/}/)
+          partitions = showpkg.rpartition(/Reverse Provides: ?#{$INPUT_RECORD_SEPARATOR}/)
           return nil if partitions[0] == "" && partitions[1] == "" # not found in output
           set = partitions[2].lines.each_with_object(Set.new) do |line, acc|
             # there may be multiple reverse provides for a single package
